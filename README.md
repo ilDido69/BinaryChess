@@ -15,3 +15,6 @@ Easy installation:
 - Clone the repository
 - Install with vcpkg sfml 3.0
 - Compile with cmake
+
+License:
+GLPv3
