@@ -1,9 +1,55 @@
-#include "Game.h"
+/*
+Main:
+You can choose between perft and game move (temporarily only perft because game.cpp and game.h need to be updated with the new generator).
+*/
+
 #include "utils.h"
-#include "moveGenerator.h"
-#include <chrono>
-#include <iostream>
+#include "moveGen.h"
 #include <string>
+#include <iostream>
+#include <chrono>
+#include <map>
+
+//used in printMove()
+std::map<int, std::string> itos
+{
+    {0,  "a1"}, {1,  "b1"}, {2,  "c1"}, {3,  "d1"},
+    {4,  "e1"}, {5,  "f1"}, {6,  "g1"}, {7,  "h1"},
+    {8,  "a2"}, {9,  "b2"}, {10, "c2"}, {11, "d2"},
+    {12, "e2"}, {13, "f2"}, {14, "g2"}, {15, "h2"},
+    {16, "a3"}, {17, "b3"}, {18, "c3"}, {19, "d3"},
+    {20, "e3"}, {21, "f3"}, {22, "g3"}, {23, "h3"},
+    {24, "a4"}, {25, "b4"}, {26, "c4"}, {27, "d4"},
+    {28, "e4"}, {29, "f4"}, {30, "g4"}, {31, "h4"},
+    {32, "a5"}, {33, "b5"}, {34, "c5"}, {35, "d5"},
+    {36, "e5"}, {37, "f5"}, {38, "g5"}, {39, "h5"},
+    {40, "a6"}, {41, "b6"}, {42, "c6"}, {43, "d6"},
+    {44, "e6"}, {45, "f6"}, {46, "g6"}, {47, "h6"},
+    {48, "a7"}, {49, "b7"}, {50, "c7"}, {51, "d7"},
+    {52, "e7"}, {53, "f7"}, {54, "g7"}, {55, "h7"},
+    {56, "a8"}, {57, "b8"}, {58, "c8"}, {59, "d8"},
+    {60, "e8"}, {61, "f8"}, {62, "g8"}, {63, "h8"}
+};
+std::array<std::string, 7> pieces = { "Pawn", "Knight", "Bishop", "Rook", "Queen", "King", "Empty" };
+
+//used for debugging
+void printMove(Move m)
+{
+    if (m > 4194303)
+        std::cout << "Error : " << m << std::endl;
+    else
+    {
+        Piece    moved = getMoved(m);
+        int      from = getFrom(m);
+        int      to = getTo(m);
+        MoveFlag flag = getFlag(m);
+        Piece    promo = getPromo(m);
+
+        std::cout << "From: " << itos[from] << std::endl;
+        std::cout << "To: " << itos[to] << std::endl;
+        std::cout << "Piece: " << pieces[static_cast<int>(moved)] << std::endl;
+    }
+}
 
 //0 = Game, 1 = perft
 int inputMode()
@@ -21,6 +67,7 @@ int inputMode()
         std::cout << "Input error" << std::endl;
     }
 }
+
 //return depth
 int inputDepth()
 {
@@ -45,68 +92,52 @@ int inputDepth()
     return maxDepth;
 }
 
-uint64_t perft(BoardState state, int depth)
-{
-    if (depth == 0) return 1;
+//stack for moveList and stateInfo
+constexpr int MAX_PLY = 128;
+MoveList moveListStack[MAX_PLY] = {};
+StateInfo stateStack[MAX_PLY] = {};
 
-    std::vector<Move> moves = moveGenerator::getAllLegalMoves(state);
+//function that recursively counts all possible legal move sequences from a given position to a specified depth, used to verify move generation correctness and NPS.
+uint64_t perft(BoardState& board, int depth, int ply = 0) {
+    
+    MoveList& moves = moveListStack[ply];
+    moves.count = 0;
+    MoveGen::getLegalMoves(board, moves);
+
+    if (depth == 1) return moves.count;
+
     uint64_t nodes = 0;
-
-    for (const Move& move : moves)
-    {
-        BoardState next = state;
-        moveGenerator::applyMove(next, move);
-        nodes += perft(next, depth - 1);
+    for (int i = 0; i < moves.count; i++) {
+        MoveGen::makeMove(board, moves.moves[i], stateStack[ply]);
+        nodes += perft(board, depth - 1, ply + 1);
+        MoveGen::unmakeMove(board, moves.moves[i], stateStack[ply]);
     }
     return nodes;
 }
 
+//main - temporarily only for perft
 int main()
 {
+
     while (true)
     {
-        int testMode = inputMode();
-        if (testMode == 1)
+        int maxDepth = inputDepth();
+        BoardState boardState;
+        MoveGen::resetBoardState(boardState);
+
+        for (int depth = 1; depth <= maxDepth; depth++)
         {
-            int maxDepth = inputDepth();
+            auto start = std::chrono::high_resolution_clock::now();
+            uint64_t nodes = perft(boardState, depth);
+            auto end = std::chrono::high_resolution_clock::now();
+            double ms = std::chrono::duration<double, std::milli>(end - start).count();
 
-            BoardState state;
-            state.board = {
-                Piece::wR, Piece::wN, Piece::wB, Piece::wQ, Piece::wK, Piece::wB, Piece::wN, Piece::wR,
-                Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP,
-                Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-                Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-                Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-                Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-                Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP,
-                Piece::bR, Piece::bN, Piece::bB, Piece::bQ, Piece::bK, Piece::bB, Piece::bN, Piece::bR
-            };
-            state.whiteToMove = true;
-            state.passantTarget = -1;
-            state.canCastle = { true, true, true, true };
-
-            for (int depth = 1; depth <= maxDepth; depth++)
-            {
-                auto start = std::chrono::high_resolution_clock::now();
-                uint64_t nodes = perft(state, depth);
-                auto end = std::chrono::high_resolution_clock::now();
-                double ms = std::chrono::duration<double, std::milli>(end - start).count();
-
-                std::cout << "Depth " << depth
-                    << " | Nodi: " << nodes
-                    << " | Tempo: " << ms << "ms"
-                    << " | NPS: " << (uint64_t)(nodes / ms * 1000)
-                    << "\n";
-            }
-        }
-        else
-        {
-            Game game;
-            while (game.running())
-            {
-                game.update();
-                game.render();
-            }
+            std::cout << "Depth " << depth
+                << " | Nodi: " << nodes
+                << " | Tempo: " << ms << "ms"
+                << " | NPS: " << (uint64_t)(nodes / ms * 1000)
+                << "\n";
         }
     }
+    return 0;
 }
