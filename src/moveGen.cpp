@@ -106,7 +106,7 @@ void MoveGen::generateBishopMoves(const BoardState& boardState, MoveList& out)
             int to = from + dir;
 
             //while 0<=target<64 and the target is on the targets of the lookuptables 
-            while (to >= 0 && to < 64 && validTargets & (1ULL << to))
+            while (validTargets & (1ULL << to)) //
             {
                 //if the target is occupied
                 if (boardState.occupied & (1ULL << to))
@@ -147,7 +147,7 @@ void MoveGen::generateRookMoves(const BoardState& boardState, MoveList& out)
             int to = from + dir;
 
             //while 0<=target<64 and the target is on the targets of the lookuptables 
-            while (to >= 0 && to < 64 && validTargets & (1ULL << to))
+            while (validTargets & (1ULL << to)) //
             {
                 //if the target is occupied
                 if (boardState.occupied & (1ULL << to))
@@ -189,7 +189,7 @@ void MoveGen::generateQueenMoves(const BoardState& boardState, MoveList& out)
             int to = from + dir;
 
             //while 0<=target<64 and the target is on the targets of the lookuptables 
-            while (to >= 0 && to < 64 && validTargets & (1ULL << to))
+            while ( validTargets & (1ULL << to)) //
             {
                 //if the target is occupied
                 if (boardState.occupied & (1ULL << to))
@@ -212,7 +212,7 @@ void MoveGen::generateQueenMoves(const BoardState& boardState, MoveList& out)
             int to = from + dir;
 
             //while 0<=target<64 and the target is on the targets of the lookuptables 
-            while (to >= 0 && to < 64 && validTargets & (1ULL << to))
+            while (validTargets & (1ULL << to)) //
             {
                 if (boardState.occupied & (1ULL << to))
                 {
@@ -608,7 +608,7 @@ bool MoveGen::isAttacked(const BoardState& boardState, int sq, Color attacker)
 
         int to = sq + dir;
 
-        while (to >= 0 && to < 64 && rookQueenPos & (1ULL << to))
+        while (rookQueenPos & (1ULL << to)) //
         {
             if (boardState.occupied & (1ULL << to))
             {
@@ -629,7 +629,7 @@ bool MoveGen::isAttacked(const BoardState& boardState, int sq, Color attacker)
 
         int to = sq + dir;
 
-        while (to >= 0 && to < 64 && bishopQueenPos & (1ULL << to))
+        while (bishopQueenPos & (1ULL << to)) //
         {
             if (boardState.occupied & (1ULL << to))
             {

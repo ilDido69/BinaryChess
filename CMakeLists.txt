@@ -6,7 +6,7 @@ endif()
 
 project(BinaryChess)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(SFML 3.0 REQUIRED COMPONENTS Graphics Window Audio)
@@ -21,7 +21,6 @@ set(SOURCES
 	src/moveGen.h
 	src/utils.h
 	src/lookUpTables.h
-	src/lookUpTables.cpp
 )
 
 add_executable(binaryChess ${SOURCES})
