@@ -123,7 +123,7 @@ int main()
     {
         int maxDepth = inputDepth();
         BoardState boardState;
-        MoveGen::resetBoardState(boardState);
+        MoveGen::resetBoardState(boardState, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
         for (int depth = 1; depth <= maxDepth; depth++)
         {

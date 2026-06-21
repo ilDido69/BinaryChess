@@ -684,3 +684,176 @@ void MoveGen::resetBoardState(BoardState& boardState)
     boardState.rule50 = 0;
     boardState.sideToMove = WHITE;
 }
+
+//reset the boardState to the fen position, fen must be validated before
+void MoveGen::resetBoardState(BoardState& boardState, std::string fen)
+{
+    std::string position;
+    char color;
+    std::string castling;
+    std::string enPassant;
+    std::string rule50;
+    std::string nMoves; // for now not used
+    int i = 0;
+
+    while (true)
+    {
+        if (fen[i] == ' ')
+            break;
+        position += fen[i];
+        i++;
+    }
+
+    color = fen[++i];
+
+    i += 2;
+    while (true)
+    {
+        if (fen[i] == ' ')
+        {
+            i++;
+            break;
+        }
+        castling += fen[i];
+        i++;
+    }
+    
+    while (true)
+    {
+        if (fen[i] == ' ')
+        {
+            i++;
+            break;
+        }
+        enPassant += fen[i];
+        i++;
+    }
+
+    while (true)
+    {
+        if (fen[i] == ' ')
+        {
+            i++;
+            break;
+        }
+        rule50 += fen[i];
+        i++;
+    }
+
+    while (true)
+    {
+        if (fen[i] == ' ')
+        {
+            i++;
+            break;
+        }
+        nMoves += fen[i];
+        i++;
+    }
+    
+    i = 56;
+    for (char c : position)
+    {
+        if (c == '/')
+        {
+            i -= 16;
+            continue;
+        }
+            
+
+        bool flag = false;
+        for (char n : "12345678")
+            if (c == n)
+            {
+                flag = true;
+                break;
+            }
+        if (flag)
+            i += c - '0';
+        else
+        {
+            boardState.occupied |= (1ULL << i);
+            
+            if (c <= 'Z')
+                boardState.byColor[WHITE] |= (1ULL << i);
+            else
+                boardState.byColor[BLACK] |= (1ULL << i);
+
+            switch (c)
+            {
+            case 'K':
+                boardState.bb[WHITE][KING] |= (1ULL << i);
+                break;
+            case 'k':
+                boardState.bb[BLACK][KING] |= (1ULL << i);
+                break;
+            case 'Q':
+                boardState.bb[WHITE][QUEEN] |= (1ULL << i);
+                break;
+            case 'q':
+                boardState.bb[BLACK][QUEEN] |= (1ULL << i);
+                break;
+            case 'R':
+                boardState.bb[WHITE][ROOK] |= (1ULL << i);
+                break;
+            case 'r':
+                boardState.bb[BLACK][ROOK] |= (1ULL << i);
+                break;
+            case 'B':
+                boardState.bb[WHITE][BISHOP] |= (1ULL << i);
+                break;
+            case 'b':
+                boardState.bb[BLACK][BISHOP] |= (1ULL << i);
+                break;
+            case 'N':
+                boardState.bb[WHITE][KNIGHT] |= (1ULL << i);
+                break;
+            case 'n':
+                boardState.bb[BLACK][KNIGHT] |= (1ULL << i);
+                break;
+            case 'P':
+                boardState.bb[WHITE][PAWN] |= (1ULL << i);
+                break;
+            case 'p':
+                boardState.bb[BLACK][PAWN] |= (1ULL << i);
+                break;
+            }
+            i++;
+        }
+    }
+
+    boardState.sideToMove = color == 'w' ? WHITE : BLACK;
+
+    boardState.castlingRights = 0;
+    if (castling != "-")
+        for (char c : castling)
+        {
+            switch (c)
+            {
+            case 'K':
+                boardState.castlingRights |= (1 << 0);
+                break;
+            case 'k':
+                boardState.castlingRights |= (1 << 2);
+                break;
+            case 'Q':
+                boardState.castlingRights |= (1 << 1);
+                break;
+             case 'q':
+                boardState.castlingRights |= (1 << 3);
+                break;
+            }
+        }
+
+    if (enPassant == "-")
+        boardState.enPassantSq = -1;
+    else
+    {
+        int c = enPassant[0] - 'a';
+        int r = enPassant[1] - '1';
+        boardState.enPassantSq = r * 8 + c;
+    }
+
+    boardState.rule50 = std::stoi(rule50);
+}
+

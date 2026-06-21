@@ -57,9 +57,9 @@ struct StateInfo {
 };
 
 struct BoardState {
-	uint64_t bb[2][6];
-	uint64_t byColor[2];
-	uint64_t occupied;
+	uint64_t bb[2][6] = {};
+	uint64_t byColor[2] = {};
+	uint64_t occupied = 0;
 
 	Color sideToMove;
 	int enPassantSq = -1;

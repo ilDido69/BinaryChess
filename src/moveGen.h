@@ -2,6 +2,7 @@
 
 #include "utils.h"
 #include <bit>
+#include <string>
 
 namespace MoveGen {
     //generate moves for single pieces
@@ -25,4 +26,5 @@ namespace MoveGen {
     int  findKing(const BoardState& boardState, Color color);
     bool isCheck(const BoardState& boardState);
     void resetBoardState(BoardState& boardState);
+    void resetBoardState(BoardState& boardState, std::string fen);
 }
