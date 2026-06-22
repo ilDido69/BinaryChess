@@ -5,6 +5,7 @@ You can choose between perft and game move (temporarily only perft because game.
 
 #include "utils.h"
 #include "moveGen.h"
+#include "Gui.h"
 #include <string>
 #include <iostream>
 #include <chrono>
@@ -141,7 +142,7 @@ uint64_t perftWithPrint(BoardState& board, int depth, int ply = 0) {
     }
     return nodes;
 }
-
+/*
 //main - temporarily only for perft
 int main()
 {
@@ -174,4 +175,15 @@ int main()
         }
     }
     return 0;
+}
+*/
+
+int main()
+{
+    Game game;
+    while (game.running())
+    {
+        game.update();
+        game.render();
+    }
 }

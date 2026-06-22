@@ -10,6 +10,12 @@ enum Piece : uint8_t{
 	PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING, EMPTY
 };
 
+enum GuiPiece : uint8_t {
+	wK, wQ, wR, wB, wN, wP,
+	bK, bQ, bR, bB, bN, bP,
+	Empty
+};
+
 enum MoveFlag : uint8_t {
 	QUIET = 0, CAPTURE, EN_PASSANT, CASTLE_K, CASTLE_Q, PROMO, PROMO_CAP
 };

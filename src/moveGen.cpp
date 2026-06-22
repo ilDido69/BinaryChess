@@ -661,6 +661,11 @@ bool MoveGen::isCheck(const BoardState& boardState)
     return isAttacked(boardState, findKing(boardState, ~boardState.sideToMove), boardState.sideToMove);
 }
 
+bool MoveGen::onCheck(const BoardState& boardState)
+{
+    return isAttacked(boardState, findKing(boardState, boardState.sideToMove),~boardState.sideToMove);
+}
+
 //reset the boardstate to the starting position
 void MoveGen::resetBoardState(BoardState& boardState)
 {
@@ -855,5 +860,19 @@ void MoveGen::resetBoardState(BoardState& boardState, std::string fen)
     }
 
     boardState.rule50 = std::stoi(rule50);
+}
+
+//return 0 = white did checkmate, 1 black did checkmate, 2 draw, 3 continue
+int MoveGen::getGameState(BoardState boardState)
+{
+    MoveList moves;
+    getLegalMoves(boardState, moves);
+    if (moves.count == 0)
+    {
+        if (onCheck(boardState))
+            return boardState.sideToMove == WHITE ? 1 : 0;
+        return 2;
+    }
+    return 3;
 }
 

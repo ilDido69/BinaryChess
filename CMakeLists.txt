@@ -15,9 +15,9 @@ include_directories(src)
 
 set(SOURCES
 	src/main.cpp
-
+	src/gui.cpp
 	src/moveGen.cpp
- 	
+ 	src/gui.h
 	src/moveGen.h
 	src/utils.h
 	src/lookUpTables.h
@@ -31,5 +31,4 @@ add_custom_command(TARGET binaryChess POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
 	"${CMAKE_SOURCE_DIR}/assets"
 	"$<TARGET_FILE_DIR:binaryChess>/assets"
-	COMMENT "Copying assets to build directory..."
 )

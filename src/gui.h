@@ -45,7 +45,7 @@ private:
 	void initWindow();
 	void initTexturesAndSprites();
 
-	void setText(Colors color);
+	void setText(int endText); //0 white, 1 black, 2 draw, 3 continue
 
 	std::optional<sf::Font> font;
 	std::optional<sf::Text> text;
@@ -54,17 +54,17 @@ private:
 
 	std::map<std::string, sf::Texture> textures;
 	std::map<std::string, sf::Sprite*> sprites;
-	std::map < Piece, std::string> pieceToKey;
+	std::map < GuiPiece, std::string> pieceToKey;
 
 	std::array<bool, 64> tilesToColor;
 	int lastTileSelected;
 	bool seePromotion;
 	Move promotionMove;
-	std::vector<Move> possibleMoveForPiece;
+	MoveList legalMoves;
 	int kingOnCheck;
 
 	BoardState boardState;
-
+	StateInfo saved; //only because makeMove() need it
 	
 public:
 	//Constructors and Destructors

@@ -1,15 +1,17 @@
-#include "Game.h"
-#include "moveGenerator.h"
+#include "Gui.h"
+#include "moveGen.h"
 
 //set tile selected
 void Game::setSelection(int index)
 {
 	lastTileSelected = index;
 	//generate all possible move for the piece
-	possibleMoveForPiece = moveGenerator::getLegalMoves(boardState, index);
-	for (Move move : possibleMoveForPiece)
+	MoveGen::getLegalMoves(boardState, legalMoves);
+	for (int i = 0; i < legalMoves.count; i++)
 	{
-		tilesToColor[move.to] = true;
+		Move move = legalMoves.moves[i];
+		if (getFrom(move) == index)
+			tilesToColor[getTo(move)] = true;
 	}
 }
 
@@ -19,6 +21,7 @@ void Game::clearSelection()
 	lastTileSelected = -1;
 	for (int i = 0; i < 64; i++)
 		tilesToColor[i] = false;
+	legalMoves.count = 0;
 }
 
 //initialize all the variables
@@ -30,28 +33,15 @@ void Game::initVariables()
 	this->boardStartPos = { (windowSize.x - tileSize * 8) / 2, (windowSize.y - tileSize * 8) / 2 };
 	pieceToKey =
 	{
-		{Piece::wK, "wK"}, {Piece::wQ, "wQ"}, {Piece::wR, "wR"}, {Piece::wB, "wB"}, {Piece::wN, "wN"}, {Piece::wP, "wP"},
-		{Piece::bK, "bK"}, {Piece::bQ, "bQ"}, {Piece::bR, "bR"}, {Piece::bB, "bB"}, {Piece::bN, "bN"}, {Piece::bP, "bP"},
+		{wK, "wK"}, {wQ, "wQ"}, {wR, "wR"}, {wB, "wB"}, {wN, "wN"}, {wP, "wP"},
+		{bK, "bK"}, {bQ, "bQ"}, {bR, "bR"}, {bB, "bB"}, {bN, "bN"}, {bP, "bP"},
 	};
 	seePromotion = false;
 	clearSelection();
 	kingOnCheck = -1;
 
 	//init boardstate
-	this->boardState.board =
-	{
-		Piece::wR, Piece::wN, Piece::wB, Piece::wQ, Piece::wK, Piece::wB, Piece::wN, Piece::wR,
-		Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP, Piece::wP,
-		Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-		Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-		Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-		Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty, Piece::Empty,
-		Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP, Piece::bP,
-		Piece::bR, Piece::bN, Piece::bB, Piece::bQ, Piece::bK, Piece::bB, Piece::bN, Piece::bR
-	};
-	boardState.canCastle = { true, true, true, true };
-	boardState.passantTarget = -1;
-	boardState.whiteToMove = true;
+	MoveGen::resetBoardState(boardState);
 }
 
 //init the window
@@ -83,22 +73,17 @@ void Game::initTexturesAndSprites()
 	}
 }
 
-void Game::setText(Colors color)
+void Game::setText(int endText)
 {
-	switch (color)
-	{
-	case Colors::White:
+	if (endText == 0)
 		text->setString("White wins");
-		break;
-	case Colors::Black:
+	else if (endText == 1)
 		text->setString("Black wins");
-		break;
-	case Colors::Draw:
+	else if (endText == 2)
 		text->setString("Draw");
-		break;
-	case Colors::Continue:
-		break;
-	}
+	else
+		return;
+
 	sf::FloatRect textBounds = text->getLocalBounds();
 
 	text->setOrigin({ textBounds.position.x + textBounds.size.x / 2.f, textBounds.position.y + textBounds.size.y / 2.f });
@@ -134,7 +119,7 @@ const bool Game::running() const
 	return this->window->isOpen();
 }
 
-//pool event and 
+//pool event
 void Game::poolEvents()
 {
 	while (auto sfmlEvent = this->window->pollEvent()) {
@@ -160,14 +145,14 @@ void Game::poolEvents()
 					//if promotion choice
 					if (seePromotion)
 					{
-						std::array<Piece, 4> pieces = boardState.whiteToMove
-							? std::array<Piece, 4>{ Piece::wQ, Piece::wR, Piece::wB, Piece::wN }
-						: std::array<Piece, 4>{ Piece::bQ, Piece::bR, Piece::bB, Piece::bN };
+						std::array<GuiPiece, 4> pieces = boardState.sideToMove
+							? std::array<GuiPiece, 4>{ wQ, wR, wB, wN }
+							: std::array<GuiPiece, 4>{ bQ, bR, bB, bN };
 
-						Piece piece = Piece::Empty;
+						GuiPiece piece = Empty;
 						for (int i = 0; i < 4; i++)
 						{
-							int menuSquare = boardState.whiteToMove ? promotionMove.to - i * 8 : promotionMove.to + i * 8;
+							int menuSquare = boardState.sideToMove == WHITE ? getTo(promotionMove) - i * 8 : getTo(promotionMove) + i * 8;
 							if (index == menuSquare)
 							{
 								piece = pieces[i];
@@ -175,10 +160,35 @@ void Game::poolEvents()
 							}
 						}
 						//if a piece was selected
-						if (piece != Piece::Empty)
+						if (piece != Empty)
 						{
-							promotionMove.promotionPiece = piece;
-							moveGenerator::applyMove(boardState, promotionMove);
+							Piece translatedPiece;
+							switch (piece)
+							{
+							case wQ:
+							case bQ:
+								translatedPiece = QUEEN;
+								break;
+
+							case wR:
+							case bR:
+								translatedPiece = ROOK;
+								break;
+
+							case wB:
+							case bB:
+								translatedPiece = BISHOP;
+								break;
+
+							case wN:
+							case bN:
+								translatedPiece = KNIGHT;
+								break;
+							}
+							
+							promotionMove = encodeMove(getFrom(promotionMove), getTo(promotionMove), PAWN, getFlag(promotionMove), translatedPiece);
+							MoveGen::makeMove(boardState, promotionMove, saved);
+							legalMoves.count = 0;
 							this->sound->play();
 							seePromotion = false;
 							continue;
@@ -195,10 +205,13 @@ void Game::poolEvents()
 					else if (lastTileSelected == -1)
 					{
 						//if valid tile
-						if (isCurrentTurn(boardState.board[index], boardState.whiteToMove) && boardState.board[index] != Piece::Empty)
+						if (boardState.sideToMove == WHITE)
 						{
+							if (boardState.byColor[WHITE] & (1ULL << index))
+								setSelection(index);
+						}
+						else if (boardState.byColor[BLACK] & (1ULL << index))
 							setSelection(index);
-						}	
 					}
 					//if lastTileSelected != currentTileSelected
 					else
@@ -206,9 +219,10 @@ void Game::poolEvents()
 						bool validMove = false;
 						Move rMove;
 						//search if the move that you want to do is in the possibleMoveForPiece
-						for (Move move : possibleMoveForPiece)
+						for (int i = 0; i < legalMoves.count; i++)
 						{
-							if (move.to == index)
+							Move move = legalMoves.moves[i];
+							if (getTo(move) == index && getFrom(move) == lastTileSelected)
 							{
 								rMove = move;
 								validMove = true;
@@ -219,14 +233,15 @@ void Game::poolEvents()
 						if (validMove)
 						{
 							clearSelection();
-							if (rMove.moveFlag == MoveFlag::Promotion)
+							if (getFlag(rMove) == MoveFlag::PROMO || getFlag(rMove) == MoveFlag::PROMO_CAP)
 							{
 								seePromotion = true;
 								promotionMove = rMove;
 							}
 							else
 							{
-								moveGenerator::applyMove(boardState, rMove);
+								MoveGen::makeMove(boardState, rMove, saved);
+								legalMoves.count = 0;
 								this->sound->play();
 							}
 						}
@@ -235,7 +250,12 @@ void Game::poolEvents()
 						{
 							clearSelection();
 							//if the new tile selected is of the same color
-							if (isCurrentTurn(boardState.board[index], boardState.whiteToMove))
+							if (boardState.sideToMove == WHITE)
+							{
+								if (boardState.byColor[WHITE] & (1ULL << index))
+									setSelection(index);
+							}
+							else if (boardState.byColor[BLACK] & (1ULL << index))
 								setSelection(index);
 						}
 					}
@@ -248,8 +268,8 @@ void Game::poolEvents()
 //updates check gui (if the king is on check -> his square became red)
 void Game::updateChecks(BoardState& boardState)
 {
-	if (moveGenerator::isSquareAttacked(boardState, moveGenerator::findKing(boardState, boardState.whiteToMove)))
-		kingOnCheck = moveGenerator::findKing(boardState, boardState.whiteToMove);
+	if (MoveGen::onCheck(boardState))
+		kingOnCheck = MoveGen::findKing(boardState, boardState.sideToMove);
 	else
 		kingOnCheck = -1;
 }
@@ -258,8 +278,7 @@ void Game::updateChecks(BoardState& boardState)
 void Game::update()
 {
 	this->poolEvents();
-	if (moveGenerator::getGameState(boardState) != Colors::Continue)
-		setText(moveGenerator::getGameState(boardState));
+	setText(MoveGen::getGameState(boardState));
 	this->updateChecks(boardState);
 }
 
@@ -311,9 +330,41 @@ void Game::renderPieces()
 {
 	for (int i = 0; i < 64; i++) 
 	{
-		if (boardState.board[i] == Piece::Empty)
+		if (!(boardState.occupied & (1ULL << i)))
 			continue;
-		std::string key = pieceToKey[boardState.board[i]];
+		std::string key;
+		Piece piece;
+		if (boardState.byColor[WHITE] & (1ULL << i))
+		{
+			key = "w";
+			piece = getPiece(boardState, WHITE, i);
+		}
+		else
+		{
+			key = "b";
+			piece = getPiece(boardState, BLACK, i);
+		}
+		switch (piece)
+		{
+		case PAWN:
+			key += "P";
+			break;
+		case KNIGHT:
+			key += "N";
+			break;
+		case BISHOP:
+			key += "B";
+			break;
+		case ROOK:
+			key += "R";
+			break;
+		case QUEEN:
+			key += "Q";
+			break;
+		case KING:
+			key += "K";
+			break;
+		}
 		sprites[key]->setPosition({ boardStartPos.x + (i % 8) * tileSize, boardStartPos.y + (7 - i / 8) * tileSize });
 		this->window->draw(*sprites[key]);
 	}
@@ -322,11 +373,11 @@ void Game::renderPieces()
 //render the promotion choice
 void Game::renderPromotion(int square)
 {
-	std::array<Piece, 4> pieces;
+	std::array<GuiPiece, 4> pieces;
 	if (square / 8 == 7)
-		pieces = { Piece::wQ, Piece::wR, Piece::wB, Piece::wN };
+		pieces = { wQ, wR, wB, wN };
 	else
-		pieces = { Piece::bN, Piece::bB, Piece::bR, Piece::bQ };
+		pieces = { bN, bB, bR, bQ };
 
 	sf::Vector2f startPosition = { boardStartPos.x + tileSize * (square % 8), (square / 8 == 7) ? boardStartPos.y : boardStartPos.y + tileSize * 4 };
 
@@ -339,7 +390,7 @@ void Game::renderPromotion(int square)
 		this->window->draw(rect);
 	}
 	int i = 0;
-	for (Piece piece : pieces)
+	for (GuiPiece piece : pieces)
 	{
 		std::string key = pieceToKey[piece];
 		sprites[key]->setPosition({ startPosition.x, startPosition.y + i * tileSize });
@@ -356,7 +407,7 @@ void Game::render()
 	this->renderTable();
 	this->renderPieces();
 	if (seePromotion)
-		this->renderPromotion(promotionMove.to);
+		this->renderPromotion(getTo(promotionMove));
 
 	this->window->draw(*text);
 

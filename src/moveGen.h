@@ -24,7 +24,11 @@ namespace MoveGen {
     //utilities
     bool isAttacked(const BoardState& boardState, int sq, Color attacker);
     int  findKing(const BoardState& boardState, Color color);
+    //used in moveGen, after making the move controls if the other side is in check
     bool isCheck(const BoardState& boardState);
+    //if the moving side's king is in check
+    bool onCheck(const BoardState& boardState);
     void resetBoardState(BoardState& boardState);
     void resetBoardState(BoardState& boardState, std::string fen);
+    int getGameState(BoardState boardState); //for gui
 }
