@@ -68,12 +68,24 @@ namespace LookupTables {
     constexpr std::array<std::array<uint64_t, 64>, 2> generatePawnAttacks() {
         std::array<std::array<uint64_t, 64>, 2> table = {};
         for (int i = 0; i < 64; i++) {
-            if (i / 8 == 0 || i / 8 == 7) continue;
             int col = i % 8;
-            if (col > 0) table[0][i] |= (1ULL << (i + 7));
-            if (col < 7) table[0][i] |= (1ULL << (i + 9));
-            if (col > 0) table[1][i] |= (1ULL << (i - 9));
-            if (col < 7) table[1][i] |= (1ULL << (i - 7));
+            if (i / 8 == 0)
+            {
+                if (col > 0) table[0][i] |= (1ULL << (i + 7));
+                if (col < 7) table[0][i] |= (1ULL << (i + 9));
+            }
+            else if (i / 8 == 7)
+            {
+                if (col > 0) table[1][i] |= (1ULL << (i - 9));
+                if (col < 7) table[1][i] |= (1ULL << (i - 7));
+            }
+            else
+            {
+                if (col > 0) table[0][i] |= (1ULL << (i + 7));
+                if (col < 7) table[0][i] |= (1ULL << (i + 9));
+                if (col > 0) table[1][i] |= (1ULL << (i - 9));
+                if (col < 7) table[1][i] |= (1ULL << (i - 7));
+            }
         }
         return table;
     }

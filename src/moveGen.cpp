@@ -258,12 +258,12 @@ void MoveGen::generateKingMoves(const BoardState& boardState, MoveList& out)
     if (side == WHITE)
     {
         //kingside
-        if (boardState.castlingRights & (1ULL << 3))
+        if (boardState.castlingRights & (1ULL ))
             if (!(boardState.occupied & (1ULL << 5 | 1ULL << 6)) && (boardState.bb[side][ROOK] & (1ULL << 7)))
                 if (!isAttacked(boardState, from, enemy) && !isAttacked(boardState, from + 1, enemy)) //don't controls from + 2 because after making the move, the king is on from + 2 and isCheck() controls that square
                     out.push(encodeMove(4, 6, KING, CASTLE_K));
         //queenside
-        if (boardState.castlingRights & (1ULL << 2))
+        if (boardState.castlingRights & (1ULL << 1))
             if (!(boardState.occupied & (1ULL << 1 | 1ULL << 2 | 1ULL << 3)) && (boardState.bb[side][ROOK] & (1ULL << 0)))
                 if (!isAttacked(boardState, from, enemy) && !isAttacked(boardState, from - 1, enemy)) //don't controls ...
                     out.push(encodeMove(4, 2, KING, CASTLE_Q));
@@ -271,12 +271,12 @@ void MoveGen::generateKingMoves(const BoardState& boardState, MoveList& out)
     else
     {
         //kingside
-        if (boardState.castlingRights & (1ULL << 1))
+        if (boardState.castlingRights & (1ULL << 2))
             if (!(boardState.occupied & (1ULL << 61 | 1ULL << 62)) && (boardState.bb[side][ROOK] & (1ULL << 63)))
                 if (!isAttacked(boardState, from, enemy) && !isAttacked(boardState, from + 1, enemy)) //don't controls ...
                     out.push(encodeMove(60, 62, KING, CASTLE_K));
         //queenside
-        if (boardState.castlingRights & 1ULL)
+        if (boardState.castlingRights & (1ULL << 3))
             if (!(boardState.occupied & (1ULL << 57 | 1ULL << 58 | 1ULL << 59)) && (boardState.bb[side][ROOK] & (1ULL << 56)))
                 if (!isAttacked(boardState, from, enemy) && !isAttacked(boardState, from - 1, enemy)) //don't controls ...
                     out.push(encodeMove(60, 58, KING, CASTLE_Q));
@@ -444,27 +444,27 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
     else if (moved == KING)
     {
         if (side == WHITE)
-            boardState.castlingRights &= ~(0x3 << 2);
-        else
             boardState.castlingRights &= ~0x3;
+        else
+            boardState.castlingRights &= ~(0x3 << 2);
     }
     else if (moved == ROOK)
     {
         if (from == 0)
-            boardState.castlingRights &= ~(1 << 2);
-        else if (from == 7)
-            boardState.castlingRights &= ~(1 << 3);
-        else if (from == 56)
-            boardState.castlingRights &= ~(1 << 0);
-        else if (from == 63)
             boardState.castlingRights &= ~(1 << 1);
+        else if (from == 7)
+            boardState.castlingRights &= ~(1 << 0);
+        else if (from == 56)
+            boardState.castlingRights &= ~(1 << 3);
+        else if (from == 63)
+            boardState.castlingRights &= ~(1 << 2);
     }
     if (moveFlag == CAPTURE || moveFlag == PROMO_CAP)
     {
-        if (to == 0)  boardState.castlingRights &= ~(1 << 2);
-        else if (to == 7)  boardState.castlingRights &= ~(1 << 3);
-        else if (to == 56) boardState.castlingRights &= ~(1 << 0);
-        else if (to == 63) boardState.castlingRights &= ~(1 << 1);
+        if (to == 0)  boardState.castlingRights &= ~(1 << 1);
+        else if (to == 7)  boardState.castlingRights &= ~(1 << 0);
+        else if (to == 56) boardState.castlingRights &= ~(1 << 3);
+        else if (to == 63) boardState.castlingRights &= ~(1 << 2);
         boardState.rule50 = 0;
     }
     

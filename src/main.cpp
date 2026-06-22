@@ -92,6 +92,16 @@ int inputDepth()
     return maxDepth;
 }
 
+//return fen, temporary it doesn't checks if it is valid, temporary "reset" -> startPos
+std::string inputFen()
+{
+    std::string fen;
+    std::cout << "Fen: ";
+    std::cin.ignore();
+    std::getline(std::cin, fen);
+    return fen;
+}
+
 //stack for moveList and stateInfo
 constexpr int MAX_PLY = 128;
 MoveList moveListStack[MAX_PLY] = {};
@@ -115,6 +125,23 @@ uint64_t perft(BoardState& board, int depth, int ply = 0) {
     return nodes;
 }
 
+uint64_t perftWithPrint(BoardState& board, int depth, int ply = 0) {
+
+    if (depth == 0) return 1;
+    MoveList& moves = moveListStack[ply];
+    moves.count = 0;
+    MoveGen::getLegalMoves(board, moves);
+
+    uint64_t nodes = 0;
+    for (int i = 0; i < moves.count; i++) {
+        printMove(moves.moves[i]);
+        MoveGen::makeMove(board, moves.moves[i], stateStack[ply]);
+        nodes += perftWithPrint(board, depth - 1, ply + 1);
+        MoveGen::unmakeMove(board, moves.moves[i], stateStack[ply]);
+    }
+    return nodes;
+}
+
 //main - temporarily only for perft
 int main()
 {
@@ -123,7 +150,14 @@ int main()
     {
         int maxDepth = inputDepth();
         BoardState boardState;
-        MoveGen::resetBoardState(boardState, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        std::string fen = inputFen();
+        if (fen == "reset")
+            MoveGen::resetBoardState(boardState);
+        else
+        {
+            MoveGen::resetBoardState(boardState, fen);
+            //MoveGen::makeMove(boardState, encodeMove(4, 6, KING, CASTLE_K), stateStack[0]);
+        }
 
         for (int depth = 1; depth <= maxDepth; depth++)
         {
