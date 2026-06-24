@@ -52,55 +52,112 @@ void printMove(Move m)
     }
 }
 
-//0 = Game, 1 = perft
-int inputMode()
+//return depth if valid else -1
+int validateDepth(std::string depth)
 {
-    while (true)
-    {
-        std::string in;
-        std::cout << "Select mode" << std::endl;
-        std::cout << "0: Game,\n1: perft\nInput: ";
-        std::cin >> in;
-        if (in == "0")
-            return 0;
-        if (in == "1")
-            return 1;
-        std::cout << "Input error" << std::endl;
-    }
-}
-
-//return depth
-int inputDepth()
-{
-    std::string s;
     int maxDepth;
-    while (true)
+    try
     {
-        std::cout << "Depth (int): ";
-        std::cin >> s;
-        try
-        {
-            maxDepth = std::stoi(s);
-            if (maxDepth > 0)
-                break;
-            std::cout << "Error: depth must be > 0" << std::endl;
-        }
-        catch (const std::exception& e)
-        {
-            std::cout << "Error: " << e.what() << std::endl;
-        }
+        maxDepth = std::stoi(depth);
+        if (maxDepth > 0)
+            return maxDepth;
+        std::cout << "Error: depth must be > 0" << std::endl;
     }
-    return maxDepth;
+    catch (const std::exception& e)
+    {
+        std::cout << "Error: " << e.what() << std::endl;
+    }
+    return -1;
 }
 
-//return fen, temporary it doesn't checks if it is valid, temporary "reset" -> startPos
-std::string inputFen()
+//return fen if valid else "error"
+std::string validateFen(std::string fen)
 {
-    std::string fen;
-    std::cout << "Fen: ";
-    std::cin.ignore();
-    std::getline(std::cin, fen);
     return fen;
+}
+
+//return move if valid else "error" 
+std::string validateMove(std::string move)
+{
+    return move;
+}
+
+//return only right commands
+Command inputCommand()
+{
+    while (true)
+    {
+        Command cmd;
+        std::string in;
+        bool flag = false;
+        std::getline(std::cin, in);
+        if (in == "quit")
+            cmd.type = QUIT;
+        else if (in == "help")
+            cmd.type = HELP;
+        else if (in == "settings")
+            cmd.type = SETTINGS;
+        else if (in == "play")
+            cmd.type = PLAY;
+        else if (in == "position startpos")
+            cmd.type = POSITION;
+        else if (in.starts_with("position fen "))
+        {
+            cmd.type = POSITION;
+            std::string fen = validateFen(in.substr(13));
+            if (fen != "error")
+                cmd.fen = fen;
+            else
+                continue;
+        }
+        else if (in.starts_with("valuate depth "))
+        {
+            cmd.type = VALUATE;
+            int depth = validateDepth(in.substr(14));
+            if (depth != -1)
+                cmd.depth = depth;
+            else
+                continue;
+        }
+        else if (in.starts_with("perft depth "))
+        {
+            cmd.type = PERFT;
+            int depth = validateDepth(in.substr(12));
+            if (depth != -1)
+                cmd.depth = depth;
+            else
+                continue;
+        }
+        else if (in.starts_with("move "))
+        {
+            cmd.type = MOVE;
+            std::string move = validateMove(in.substr(5));
+            if (move != "error")
+                cmd.move = move;
+            else
+                continue;
+        }
+        else
+        {
+            std::cout << "Unknown command '" << in << "'. Type 'help' for more information" << std::endl;
+            flag = true;
+        }
+        if (!flag)
+            return cmd;
+    }
+}
+
+void printHelp()
+{
+    std::cout << "Commands:\n"
+        << "  quit\n"
+        << "  help\n"
+        << "  settings\n"
+        << "  play\n"
+        << "  position startpos / fen <FEN>\n"
+        << "  valuate depth <DEPTH>\n"
+        << "  perft depth <DEPTH>\n"
+        << "  move <MOVE>\n";
 }
 
 //stack for moveList and stateInfo
@@ -142,48 +199,66 @@ uint64_t perftWithPrint(BoardState& board, int depth, int ply = 0) {
     }
     return nodes;
 }
-/*
+
 //main - temporarily only for perft
 int main()
 {
+    BoardState boardState;
+    MoveGen::resetBoardState(boardState);
 
     while (true)
     {
-        int maxDepth = inputDepth();
-        BoardState boardState;
-        std::string fen = inputFen();
-        if (fen == "reset")
-            MoveGen::resetBoardState(boardState);
-        else
+        Command cmd = inputCommand();
+        switch (cmd.type)
         {
-            MoveGen::resetBoardState(boardState, fen);
-            //MoveGen::makeMove(boardState, encodeMove(4, 6, KING, CASTLE_K), stateStack[0]);
-        }
-
-        for (int depth = 1; depth <= maxDepth; depth++)
+        case QUIT:
+            return 0;
+        case HELP:
+            printHelp();
+            break;
+        case SETTINGS:
+            std::cout << "work in progress\n";
+            break;
+        case PLAY:
         {
-            auto start = std::chrono::high_resolution_clock::now();
-            uint64_t nodes = perft(boardState, depth);
-            auto end = std::chrono::high_resolution_clock::now();
-            double ms = std::chrono::duration<double, std::milli>(end - start).count();
-
-            std::cout << "Depth " << depth
-                << " | Nodi: " << nodes
-                << " | Tempo: " << ms << "ms"
-                << " | NPS: " << (uint64_t)(nodes / ms * 1000)
-                << "\n";
+            Game game;
+            while (game.running())
+            {
+                game.update();
+                game.render();
+            }
+            break;
         }
-    }
-    return 0;
-}
-*/
+        case POSITION:
+            if (cmd.fen.empty())
+                MoveGen::resetBoardState(boardState);
+            else
+                MoveGen::resetBoardState(boardState, cmd.fen);
+            break;
+        case VALUATE:
+            std::cout << "work in progress\n";
+            break;
+        case PERFT:
+        {
+            int maxDepth = cmd.depth;
+            for (int depth = 1; depth <= maxDepth; depth++)
+            {
+                auto start = std::chrono::high_resolution_clock::now();
+                uint64_t nodes = perft(boardState, depth);
+                auto end = std::chrono::high_resolution_clock::now();
+                double ms = std::chrono::duration<double, std::milli>(end - start).count();
 
-int main()
-{
-    Game game;
-    while (game.running())
-    {
-        game.update();
-        game.render();
+                std::cout << "Depth " << depth
+                    << " | Nodi: " << nodes
+                    << " | Tempo: " << ms << "ms"
+                    << " | NPS: " << (uint64_t)(nodes / ms * 1000)
+                    << "\n";
+            }
+        }
+            break;
+        case MOVE:
+            std::cout << "work in progress\n";
+            break;
+        }
     }
 }

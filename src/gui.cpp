@@ -111,6 +111,9 @@ Game::~Game()
 	delete this->window;
 	for (auto& [key, sprite] : sprites)
 		delete sprite;
+
+	delete this->sound;
+	delete this->soundBuffer;
 }
 
 //Functions
