@@ -1,4 +1,4 @@
-#include "Gui.h"
+#include "gui.h"
 #include "moveGen.h"
 
 //set tile selected

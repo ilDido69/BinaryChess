@@ -701,6 +701,8 @@ void MoveGen::resetBoardState(BoardState& boardState, std::string fen)
     std::string nMoves; // for now not used
     int i = 0;
 
+    boardState = BoardState{};
+
     while (true)
     {
         if (fen[i] == ' ')

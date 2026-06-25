@@ -5,7 +5,8 @@ You can choose between perft and game move (temporarily only perft because game.
 
 #include "utils.h"
 #include "moveGen.h"
-#include "Gui.h"
+#include "gui.h"
+#include "search.h"
 #include <string>
 #include <iostream>
 #include <chrono>
@@ -236,7 +237,7 @@ int main()
                 MoveGen::resetBoardState(boardState, cmd.fen);
             break;
         case VALUATE:
-            std::cout << "work in progress\n";
+            printMove(Search::getBestMove(boardState, cmd.depth));
             break;
         case PERFT:
         {

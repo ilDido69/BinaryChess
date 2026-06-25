@@ -17,10 +17,12 @@ set(SOURCES
 	src/main.cpp
 	src/gui.cpp
 	src/moveGen.cpp
+	src/search.cpp
  	src/gui.h
 	src/moveGen.h
 	src/utils.h
 	src/lookUpTables.h
+	src/search.h
 )
 
 add_executable(binaryChess ${SOURCES})
