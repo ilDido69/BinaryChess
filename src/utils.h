@@ -5,6 +5,7 @@ That file contains all the struct, enum and general functions.
 #pragma once
 #include <cstdint>
 #include <array>
+#include <vector>
 #include <string>
 
 enum Piece : uint8_t{
@@ -25,9 +26,13 @@ enum Color : uint8_t {
 	WHITE, BLACK
 };
 
-enum  CommandType {
+enum class ShellType {
 	QUIT, HELP, SETTINGS, PLAY,
 	POSITION, VALUATE, PERFT, MOVE
+};
+
+enum class UciType {
+	UCI, ISREADY, NEWGAME, POSITION, GODEPTH, QUIT
 };
 
 constexpr Color operator~(Color c) {
@@ -90,9 +95,16 @@ inline Piece getPiece(BoardState& boardState, Color color, int sq)
 	return EMPTY;
 }
 
-struct Command {
-	CommandType type;
+struct ShellCommand {
+	ShellType type;
 	int depth = 0;
 	std::string move;
 	std::string fen;        
+};
+
+struct UciCommand {
+	UciType type;
+	int depth = 0;
+	std::vector<std::string> moves;
+	std::string fen;
 };

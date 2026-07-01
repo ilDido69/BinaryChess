@@ -5,52 +5,52 @@ You can choose between perft and game move (temporarily only perft because game.
 
 #include "utils.h"
 #include "moveGen.h"
-#include "gui.h"
 #include "search.h"
 #include <string>
 #include <iostream>
 #include <chrono>
 #include <map>
 
-//used in printMove()
-std::map<int, std::string> itos
-{
-    {0,  "a1"}, {1,  "b1"}, {2,  "c1"}, {3,  "d1"},
-    {4,  "e1"}, {5,  "f1"}, {6,  "g1"}, {7,  "h1"},
-    {8,  "a2"}, {9,  "b2"}, {10, "c2"}, {11, "d2"},
-    {12, "e2"}, {13, "f2"}, {14, "g2"}, {15, "h2"},
-    {16, "a3"}, {17, "b3"}, {18, "c3"}, {19, "d3"},
-    {20, "e3"}, {21, "f3"}, {22, "g3"}, {23, "h3"},
-    {24, "a4"}, {25, "b4"}, {26, "c4"}, {27, "d4"},
-    {28, "e4"}, {29, "f4"}, {30, "g4"}, {31, "h4"},
-    {32, "a5"}, {33, "b5"}, {34, "c5"}, {35, "d5"},
-    {36, "e5"}, {37, "f5"}, {38, "g5"}, {39, "h5"},
-    {40, "a6"}, {41, "b6"}, {42, "c6"}, {43, "d6"},
-    {44, "e6"}, {45, "f6"}, {46, "g6"}, {47, "h6"},
-    {48, "a7"}, {49, "b7"}, {50, "c7"}, {51, "d7"},
-    {52, "e7"}, {53, "f7"}, {54, "g7"}, {55, "h7"},
-    {56, "a8"}, {57, "b8"}, {58, "c8"}, {59, "d8"},
-    {60, "e8"}, {61, "f8"}, {62, "g8"}, {63, "h8"}
-};
-std::array<std::string, 7> pieces = { "Pawn", "Knight", "Bishop", "Rook", "Queen", "King", "Empty" };
+std::string squareToAlgebraic(int sq) {
+    std::string s;
+    s += ('a' + sq % 8);
+    s += ('1' + sq / 8);
+    return s;
+}
+
+int algebraicToSquare(std::string s) {
+    int file = s[0] - 'a';
+    int rank = s[1] - '1';
+    return rank * 8 + file;
+}
 
 //used for debugging
 void printMove(Move m)
 {
-    if (m > 4194303)
-        std::cout << "Error : " << m << std::endl;
-    else
-    {
-        Piece    moved = getMoved(m);
-        int      from = getFrom(m);
-        int      to = getTo(m);
-        MoveFlag flag = getFlag(m);
-        Piece    promo = getPromo(m);
+    int from = getFrom(m);
+    int to = getTo(m);
+    Piece promo = getPromo(m);
 
-        std::cout << "From: " << itos[from] << std::endl;
-        std::cout << "To: " << itos[to] << std::endl;
-        std::cout << "Piece: " << pieces[static_cast<int>(moved)] << std::endl;
+    std::string promoPiece = "";
+    if (promo != EMPTY)
+    {
+        switch (promo)
+        {
+        case KNIGHT:
+            promoPiece = "n";
+            break;
+        case BISHOP:
+            promoPiece = "b";
+            break;
+        case ROOK:
+            promoPiece = "r";
+            break;
+        case QUEEN:
+            promoPiece = "q";
+            break;
+        }
     }
+    std::cout << squareToAlgebraic(from) << squareToAlgebraic(to) << promoPiece << "\n" << std::flush;
 }
 
 //return depth if valid else -1
@@ -83,12 +83,189 @@ std::string validateMove(std::string move)
     return move;
 }
 
-//return only right commands
-Command inputCommand()
+std::vector<std::string> splitMoves(std::string s)
+{
+    std::vector<std::string> moves;
+    std::istringstream iss(s);
+    std::string mv;
+    while (iss >> mv)
+        moves.push_back(mv);
+    return moves;
+}
+
+UciCommand inputUci()
 {
     while (true)
     {
-        Command cmd;
+        UciCommand cmd;
+        std::string in;
+        bool flag = false;
+        std::getline(std::cin, in);
+        if (in == "uci")
+            cmd.type = UciType::UCI;
+        else if (in == "isready")
+            cmd.type = UciType::ISREADY;
+        else if (in == "quit")
+            cmd.type = UciType::QUIT;
+        else if (in == "ucinewgame")
+            cmd.type = UciType::NEWGAME;
+        else if (in.starts_with("go depth "))
+        {
+            cmd.type = UciType::GODEPTH;
+            int depth = validateDepth(in.substr(9));
+            if (depth != -1)
+                cmd.depth = depth;
+            else
+                continue;
+        }
+        else if (in == "position startpos" || in.starts_with("position startpos moves "))
+        {
+            cmd.type = UciType::POSITION;
+            if (in.starts_with("position startpos moves "))
+                cmd.moves = splitMoves(in.substr(24));
+        }
+        else if (in.starts_with("position fen "))
+        {
+            cmd.type = UciType::POSITION;
+            std::string rest = in.substr(13);
+
+            std::string fenPart = rest;
+            auto movesPos = rest.find(" moves ");
+            if (movesPos != std::string::npos)
+            {
+                fenPart = rest.substr(0, movesPos);
+                cmd.moves = splitMoves(rest.substr(movesPos + 7));
+            }
+
+            std::string fen = validateFen(fenPart);
+            if (fen != "error")
+                cmd.fen = fen;
+            else
+                continue;
+        }
+        else
+        {
+            std::cout << "Unknown command '" << in << "'. Type 'help' for more information" << std::endl;
+            flag = true;
+        }
+        if (!flag)
+            return cmd;
+    }
+}
+
+StateInfo uciMakeMoveStack;
+void uciMakeMoves(BoardState& boardState, std::vector<std::string> moves)
+{
+    if (moves.empty())
+        return;
+
+    std::string move = moves[0];
+    moves.erase(moves.begin());
+
+    Color side = boardState.sideToMove;
+    int from = algebraicToSquare(move.substr(0, 2));
+    int to = algebraicToSquare(move.substr(2, 2));
+    Piece piece = getPiece(boardState, side, from);
+    MoveFlag flag = QUIET;
+    Piece promo = EMPTY;
+    if (move.size() == 5)
+    {
+        switch (move[4])
+        {
+        case 'q':
+            promo = QUEEN;
+            break;
+        case 'r':
+            promo = ROOK;
+            break;
+        case 'b':
+            promo = BISHOP;
+            break;
+        case 'n':
+            promo = KNIGHT;
+            break;
+        }
+    }
+    if (piece == KING)
+    {
+        if (from == 4 && side == WHITE || from == 60 && side == BLACK)
+        {
+            if (to == 6 && side == WHITE || to == 62 && side == BLACK)
+                flag = CASTLE_K;
+            else if (to == 2 && side == WHITE || to == 58 && side == BLACK)
+                flag = CASTLE_Q;
+        }
+    }
+    else if (piece == PAWN)
+    {
+        if (to / 8 == 7 && side == WHITE || to / 8 == 0 && side == BLACK)
+            flag = PROMO;
+        else if (from / 8 == 4 && side == WHITE || from / 8 == 3 && side == BLACK)
+        {
+            int d = to % 8 - from % 8;
+            if (d == 1 || d == -1)
+                flag = EN_PASSANT;
+        }
+    }
+    if (boardState.byColor[~side] & (1ULL << to))
+    {
+        if (flag == PROMO)
+            flag = PROMO_CAP;
+        else
+            flag = CAPTURE;
+    }
+
+    MoveGen::makeMove(boardState, encodeMove(from, to, piece, flag, promo), uciMakeMoveStack);
+
+    uciMakeMoves(boardState, moves);
+}
+
+int main()
+{
+    BoardState boardState;
+    MoveGen::resetBoardState(boardState);
+
+    while (true)
+    {
+        UciCommand cmd = inputUci();
+        switch (cmd.type)
+        {
+        case UciType::UCI:
+            std::cout << "id name BinaryChess v1.0\n";
+            std::cout << "id author ilDido69\n";
+            std::cout << "uciok\n" << std::flush;
+            break;
+        case UciType::ISREADY:
+            std::cout << "readyok\n" << std::flush;
+            break;
+        case UciType::QUIT:
+            return 0;
+        case UciType::NEWGAME:
+            MoveGen::resetBoardState(boardState);
+            break;
+        case UciType::GODEPTH:
+            std::cout << "bestmove ";
+            printMove(Search::getBestMove(boardState, cmd.depth));
+            break;
+        case UciType::POSITION:
+            if (cmd.fen == "")
+                MoveGen::resetBoardState(boardState);
+            else
+                MoveGen::resetBoardState(boardState, cmd.fen);
+            if (!cmd.moves.empty())
+                uciMakeMoves(boardState, cmd.moves);
+            break;
+        }
+    }
+}
+
+/*
+//return only right commands
+ShellCommand inputShell()
+{
+    while (true)
+    {
+        ShellCommand cmd;
         std::string in;
         bool flag = false;
         std::getline(std::cin, in);
@@ -148,6 +325,7 @@ Command inputCommand()
     }
 }
 
+*/
 void printHelp()
 {
     std::cout << "Commands:\n"
@@ -201,6 +379,7 @@ uint64_t perftWithPrint(BoardState& board, int depth, int ply = 0) {
     return nodes;
 }
 
+/*
 //main - temporarily only for perft
 int main()
 {
@@ -209,7 +388,7 @@ int main()
 
     while (true)
     {
-        Command cmd = inputCommand();
+        ShellCommand cmd = inputShell();
         switch (cmd.type)
         {
         case QUIT:
@@ -263,3 +442,5 @@ int main()
         }
     }
 }
+
+*/
