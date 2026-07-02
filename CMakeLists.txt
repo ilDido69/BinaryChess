@@ -15,16 +15,16 @@ include_directories(src)
 
 set(SOURCES
 	src/main.cpp
-	src/gui.cpp
 	src/moveGen.cpp
 	src/search.cpp
- 	src/gui.h
 	src/moveGen.h
 	src/utils.h
 	src/lookUpTables.h
 	src/search.h
 	src/zobrist.h
 	src/Zobrist.cpp
+	src/tt.h
+	src/tt.cpp
 )
 
 add_executable(binaryChess ${SOURCES})

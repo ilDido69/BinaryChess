@@ -1,6 +1,30 @@
 #include "search.h"
+#include "tt.h"
+
+TranspositionTable tt(2048);
+
 
 const std::array<int, 6> pieceValues = { 100, 320, 330, 500, 900, 20000 };
+const int promoScores[6] = { 0, 30'000, 30'000, 40'000, 800'000, 0 };
+const int promoCapScores[6] = { 0, 30'000, 30'000, 40'000, 900'000, 0 };
+const int flagBaseScores[8] = {
+	0,          // QUIET
+	0,          // CAPTURE
+	1900,       // EN_PASSANT
+	50,         // CASTLE_K
+	50,         // CASTLE_Q
+	0,          // PROMO
+	0           // PROMO_CAP
+};
+
+// Rows = Victims (P, N, B, R, Q), Columns = Attackers (P, N, B, R, Q, K)
+inline constexpr int mvvLvaTable[5][6] = {
+	{1900,  1700,  1700,  1500,  1100,  1950},
+	{3900,  3700,  3700,  3500,  3100,  3950},
+	{3900,  3700,  3700,  3500,  3100,  3950},
+	{5900,  5700,  5700,  5500,  5100,  5950},
+	{9900,  9700,  9700,  9500,  9100,  9950}
+};
 
 constexpr std::array<int, 64> pawnValues = {
 	 0,  0,  0,  0,  0,  0,  0,  0,
@@ -133,6 +157,29 @@ int Search::evaluate(BoardState& boardState)
 	return boardState.sideToMove == WHITE ? score : -score;
 }
 
+int Search::scoreMove(Move move, BoardState& boardState, Move TTmove)
+{
+	if (move == TTmove) return 10'000'000;
+
+	MoveFlag flag = getFlag(move);
+	int score = flagBaseScores[flag];
+
+	if (flag == CAPTURE || flag == PROMO_CAP) {
+		int to = getTo(move);
+		Piece captured = getPiece(boardState, ~boardState.sideToMove, to);
+		Piece moved = getMoved(move);
+		score += mvvLvaTable[captured][moved];
+	}
+
+	if (flag == PROMO || flag == PROMO_CAP) {
+		Piece promo = getPromo(move);
+		score += (flag == PROMO) ? promoScores[promo] : promoCapScores[promo];
+	}
+
+	return score;
+}
+
+/*
 int Search::negamax(BoardState& boardState, SearchContext& ctx, int depth, int ply, int alpha, int beta)
 {
 	int best = -INF;
@@ -174,29 +221,159 @@ int Search::negamax(BoardState& boardState, SearchContext& ctx, int depth, int p
 
 	return best;
 }
+*/
+long long nodesCount;
+
+int Search::negamax(BoardState& boardState, SearchContext& ctx, int depth, int ply, int alpha, int beta) 
+{
+	nodesCount++;
+
+	if (ply > 1 && (boardState.rule50 >= 100 || isRepetition(boardState, ctx)))
+		return 0;
+
+	if (depth == 0) {
+		return evaluate(boardState);
+	}
+
+	int ttScore = 0;
+	Move ttMove;
+
+	if (tt.probe(boardState.hash, depth, alpha, beta, ttScore, ttMove)) {
+
+		if (ttScore > MATE)  ttScore -= ply;
+		if (ttScore < -MATE) ttScore += ply;
+
+		return ttScore;
+	}
+
+	ctx.moveStack[ply].count = 0;
+	MoveGen::getLegalMoves(boardState, ctx.moveStack[ply]);
+	if (ctx.moveStack[ply].count == 0)
+	{
+		if (MoveGen::onCheck(boardState))
+			return -100000000 + ply;
+		return 0;
+	}
+
+	
+	for (int i = 0; i < ctx.moveStack[ply].count; i++)
+	{
+		ctx.moveScores[ply][i] = scoreMove(ctx.moveStack[ply].moves[i], boardState, ttMove);
+	}
+
+
+	int best = -INF;
+	Move bestMove = 0;
+	int originalAlpha = alpha;
+	int result;
+	for (int i = 0; i < ctx.moveStack[ply].count; i++)
+	{
+
+		int bestMoveIndex = i;
+		for (int j = i + 1; j < ctx.moveStack[ply].count; j++)
+		{
+			if (ctx.moveScores[ply][j] > ctx.moveScores[ply][bestMoveIndex])
+			{
+				bestMoveIndex = j;
+			}
+		}
+
+		std::swap(ctx.moveStack[ply].moves[i], ctx.moveStack[ply].moves[bestMoveIndex]);
+		std::swap(ctx.moveScores[ply][i], ctx.moveScores[ply][bestMoveIndex]);
+
+		MoveGen::makeMove(boardState, ctx.moveStack[ply].moves[i], ctx.stateStack[ply]);
+		ctx.pushHash(boardState.hash);
+		result = -negamax(boardState, ctx, depth - 1, ply + 1, -beta, -alpha);
+		ctx.popHash();
+		MoveGen::unmakeMove(boardState, ctx.moveStack[ply].moves[i], ctx.stateStack[ply]);
+		if (result > best)
+		{
+			best = result;
+			bestMove = ctx.moveStack[ply].moves[i];
+		}
+		if (result > alpha)
+		{
+			alpha = result;
+		}
+		if (alpha >= beta)
+			break;
+	}
+	
+	TTEntry::Flag flag;
+	if (best <= originalAlpha) {
+		flag = TTEntry::UPPERBOUND;
+	}
+	else if (best >= beta) {
+		flag = TTEntry::LOWERBOUND;
+	}
+	else {
+		flag = TTEntry::EXACT;
+	}
+
+	int scoreToStore = best;
+	if (scoreToStore > MATE)  scoreToStore += ply;
+	if (scoreToStore < -MATE) scoreToStore -= ply;
+
+	tt.store(boardState.hash, depth, scoreToStore, flag, bestMove);
+
+	return best;
+}
 
 int bestScore;
 
+
 Move Search::getBestMove(BoardState& boardState, SearchContext& ctx, int depth)
 {
+	nodesCount = 0;
+
 	ctx.moveStack[0].count = 0;
 	MoveGen::getLegalMoves(boardState, ctx.moveStack[0]);
 
 	Move best = encodeMove(0, 0, EMPTY);
 	bestScore = -INF;
 
+	int alpha = -INF;
+	int beta = INF;
+
+	Move rootTtMove = 0;
+	int dummyScore;
+	tt.probe(boardState.hash, depth, alpha, beta, dummyScore, rootTtMove);
+
+	for (int i = 0; i < ctx.moveStack[0].count; i++)
+	{
+		ctx.moveScores[0][i] = scoreMove(ctx.moveStack[0].moves[i], boardState, rootTtMove);
+	}
+
 	int result;
 	for (int i = 0; i < ctx.moveStack[0].count; i++)
 	{
+		int bestMoveIndex = i;
+		for (int j = i + 1; j < ctx.moveStack[0].count; j++)
+		{
+			if (ctx.moveScores[0][j] > ctx.moveScores[0][bestMoveIndex])
+			{
+				bestMoveIndex = j;
+			}
+		}
+
+		std::swap(ctx.moveStack[0].moves[i], ctx.moveStack[0].moves[bestMoveIndex]);
+		std::swap(ctx.moveScores[0][i], ctx.moveScores[0][bestMoveIndex]);
+
 		MoveGen::makeMove(boardState, ctx.moveStack[0].moves[i], ctx.stateStack[0]);
-		ctx.pushHash(boardState.hash);
-		result = -negamax(boardState, ctx, depth - 1);
-		ctx.popHash();
+
+		result = -negamax(boardState, ctx, depth - 1, 1, -beta, -alpha);
+
 		MoveGen::unmakeMove(boardState, ctx.moveStack[0].moves[i], ctx.stateStack[0]);
+
 		if (result > bestScore)
 		{
 			bestScore = result;
 			best = ctx.moveStack[0].moves[i];
+		}
+
+		if (result > alpha)
+		{
+			alpha = result;
 		}
 	}
 
@@ -210,7 +387,7 @@ int Search::getScore()
 
 int Search::getNodes()
 {
-	return 0;
+	return nodesCount;
 }
 
 

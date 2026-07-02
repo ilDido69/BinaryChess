@@ -119,6 +119,8 @@ struct SearchContext {
 	MoveList moveStack[MAX_PLY] = {};
 	StateInfo stateStack[MAX_PLY] = {};
 
+	int moveScores[MAX_PLY][256] = {};
+
 	uint64_t hashHistory[1024] = {};
 	int historyCount = 0;
 
@@ -129,4 +131,12 @@ struct SearchContext {
 
 	void pushHash(uint64_t hash) { hashHistory[historyCount++] = hash; }
 	void popHash() { historyCount--; }
+};
+
+struct TTEntry {
+	uint64_t key;
+	int depth;
+	int score;
+	enum Flag { EXACT, LOWERBOUND, UPPERBOUND } flag;
+	Move bestMove;
 };

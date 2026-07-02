@@ -7,6 +7,7 @@ You can choose between perft and game move (temporarily only perft because game.
 #include "moveGen.h"
 #include "search.h"
 #include "zobrist.h"
+#include "tt.h"
 #include <string>
 #include <iostream>
 #include <chrono>
@@ -251,9 +252,10 @@ int main()
         case UciType::GODEPTH:
         {
             Move bestMove = Search::getBestMove(boardState, ctx, cmd.depth);
-            std::cout << "info score cp " << Search::getScore() << "\n";
+            std::cout << "info depth " << cmd.depth << " score cp " << Search::getScore() << " nodes " << Search::getNodes() << "\n";
             std::cout << "bestmove ";
             printMove(bestMove);
+            tt.clear();
             break;
         }
         case UciType::POSITION:
