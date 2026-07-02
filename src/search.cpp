@@ -1,9 +1,5 @@
 #include "search.h"
 
-constexpr int MAXPLY = 128;
-MoveList moveStack[MAXPLY] = {};
-StateInfo savedStack[MAXPLY] = {};
-
 const std::array<int, 6> pieceValues = { 100, 320, 330, 500, 900, 20000 };
 
 constexpr std::array<int, 64> pawnValues = {
@@ -77,7 +73,20 @@ const std::array<int, 64>* psts[6] = {
 		&rookValue, &queenValues, &kingValue
 };
 
+bool Search::isRepetition(BoardState& boardState, SearchContext& ctx)
+{
+	if (boardState.rule50 < 4) return false;
 
+	int limit = ctx.historyCount - boardState.rule50;
+	if (limit < 0) limit = 0;
+
+	for (int i = ctx.historyCount - 2; i >= limit; i -= 2)
+	{
+		if (ctx.hashHistory[i] == boardState.hash)
+			return true;
+	}
+	return false;
+}
 
 int Search::evaluateM(BoardState& boardState)
 {
@@ -120,20 +129,20 @@ int Search::evaluate(BoardState& boardState)
 
 			score -= (*psts[piece])[sq ^ 56];
 		}
-
-		
 	}
 	return boardState.sideToMove == WHITE ? score : -score;
 }
 
-int Search::negamax(BoardState& boardState, int depth, int ply, int alpha, int beta)
+int Search::negamax(BoardState& boardState, SearchContext& ctx, int depth, int ply, int alpha, int beta)
 {
 	int best = -INF;
+	if (boardState.rule50 >= 100 || isRepetition(boardState, ctx))
+		return 0;
 
-	moveStack[ply].count = 0;
-	MoveGen::getLegalMoves(boardState, moveStack[ply]);
+	ctx.moveStack[ply].count = 0;
+	MoveGen::getLegalMoves(boardState, ctx.moveStack[ply]);
 
-	if (moveStack[ply].count == 0)
+	if (ctx.moveStack[ply].count == 0)
 	{
 		if (MoveGen::onCheck(boardState))
 			return -100000000 - depth;
@@ -144,11 +153,13 @@ int Search::negamax(BoardState& boardState, int depth, int ply, int alpha, int b
 		return evaluate(boardState);
 
 	int result;
-	for (int i = 0; i < moveStack[ply].count; i++)
+	for (int i = 0; i < ctx.moveStack[ply].count; i++)
 	{
-		MoveGen::makeMove(boardState, moveStack[ply].moves[i], savedStack[ply]);
-		result = -negamax(boardState, depth - 1, ply + 1, -beta, -alpha);
-		MoveGen::unmakeMove(boardState, moveStack[ply].moves[i], savedStack[ply]);
+		MoveGen::makeMove(boardState, ctx.moveStack[ply].moves[i], ctx.stateStack[ply]);
+		ctx.pushHash(boardState.hash);
+		result = -negamax(boardState, ctx, depth - 1, ply + 1, -beta, -alpha);
+		ctx.popHash();
+		MoveGen::unmakeMove(boardState, ctx.moveStack[ply].moves[i], ctx.stateStack[ply]);
 		if (result > best)
 		{
 			best = result;
@@ -166,24 +177,26 @@ int Search::negamax(BoardState& boardState, int depth, int ply, int alpha, int b
 
 int bestScore;
 
-Move Search::getBestMove(BoardState& boardState, int depth)
+Move Search::getBestMove(BoardState& boardState, SearchContext& ctx, int depth)
 {
-	moveStack[0].count = 0;
-	MoveGen::getLegalMoves(boardState, moveStack[0]);
+	ctx.moveStack[0].count = 0;
+	MoveGen::getLegalMoves(boardState, ctx.moveStack[0]);
 
 	Move best = encodeMove(0, 0, EMPTY);
 	bestScore = -INF;
 
 	int result;
-	for (int i = 0; i < moveStack[0].count; i++)
+	for (int i = 0; i < ctx.moveStack[0].count; i++)
 	{
-		MoveGen::makeMove(boardState, moveStack[0].moves[i], savedStack[0]);
-		result = -negamax(boardState, depth - 1);
-		MoveGen::unmakeMove(boardState, moveStack[0].moves[i], savedStack[0]);
+		MoveGen::makeMove(boardState, ctx.moveStack[0].moves[i], ctx.stateStack[0]);
+		ctx.pushHash(boardState.hash);
+		result = -negamax(boardState, ctx, depth - 1);
+		ctx.popHash();
+		MoveGen::unmakeMove(boardState, ctx.moveStack[0].moves[i], ctx.stateStack[0]);
 		if (result > bestScore)
 		{
 			bestScore = result;
-			best = moveStack[0].moves[i];
+			best = ctx.moveStack[0].moves[i];
 		}
 	}
 

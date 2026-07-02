@@ -1,5 +1,6 @@
 #include "moveGen.h"
 #include "lookUpTables.h"
+#include "zobrist.h"
 
 void MoveGen::generatePawnMoves(const BoardState& boardState, MoveList& out)
 {
@@ -330,24 +331,31 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
     saved.enPassantSquare = boardState.enPassantSq;
     saved.castlingRights = boardState.castlingRights;
     saved.capturedPiece = EMPTY;
+    saved.hash = boardState.hash;
 
+    boardState.hash ^= Zobrist::bbKeys[side][moved][from];
+    
     //change bitboards
     switch (moveFlag)
     {
     case QUIET:
     {
+        boardState.hash ^= Zobrist::bbKeys[side][moved][to];
         clearBit(boardState.bb[side][moved], from);
         setBit(boardState.bb[side][moved], to);
         clearBit(boardState.occupied, from);
         setBit(boardState.occupied, to);
         clearBit(boardState.byColor[side], from);
         setBit(boardState.byColor[side], to);
+        
         break;
     }
     case CAPTURE:
     {
         Piece capturedPiece = getPiece(boardState, enemy, to);
         saved.capturedPiece = capturedPiece;
+        boardState.hash ^= Zobrist::bbKeys[side][moved][to];
+        boardState.hash ^= Zobrist::bbKeys[enemy][capturedPiece][to];
         clearBit(boardState.bb[side][moved], from);
         setBit(boardState.bb[side][moved], to);
         clearBit(boardState.bb[enemy][capturedPiece], to);
@@ -359,13 +367,15 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
     }
     case EN_PASSANT:
     {
+        int enPassantPawn = (from / 8) * 8 + to % 8;
+        boardState.hash ^= Zobrist::bbKeys[side][moved][to];
+        boardState.hash ^= Zobrist::bbKeys[enemy][PAWN][enPassantPawn];
         clearBit(boardState.bb[side][moved], from);
         setBit(boardState.bb[side][moved], to);
         clearBit(boardState.byColor[side], from);
         setBit(boardState.byColor[side], to);
         clearBit(boardState.occupied, from);
         setBit(boardState.occupied, to);
-        int enPassantPawn = (from / 8) * 8 + to % 8;
         clearBit(boardState.bb[enemy][PAWN], enPassantPawn);
         clearBit(boardState.byColor[enemy], enPassantPawn);
         clearBit(boardState.occupied, enPassantPawn);
@@ -373,6 +383,9 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
     }
     case CASTLE_K:
     {
+        boardState.hash ^= Zobrist::bbKeys[side][moved][to];
+        boardState.hash ^= Zobrist::bbKeys[side][ROOK][from + 3];
+        boardState.hash ^= Zobrist::bbKeys[side][ROOK][from + 1];
         clearBit(boardState.bb[side][moved], from);
         setBit(boardState.bb[side][moved], to);
         clearBit(boardState.bb[side][ROOK], from + 3);
@@ -389,6 +402,9 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
     }
     case CASTLE_Q:
     {
+        boardState.hash ^= Zobrist::bbKeys[side][moved][to];
+        boardState.hash ^= Zobrist::bbKeys[side][ROOK][from - 4];
+        boardState.hash ^= Zobrist::bbKeys[side][ROOK][from - 1];
         clearBit(boardState.bb[side][moved], from);
         setBit(boardState.bb[side][moved], to);
         clearBit(boardState.bb[side][ROOK], from - 4);
@@ -405,6 +421,7 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
     }
     case PROMO:
     {
+        boardState.hash ^= Zobrist::bbKeys[side][promoPiece][to];
         clearBit(boardState.bb[side][moved], from);
         setBit(boardState.bb[side][promoPiece], to);
         clearBit(boardState.occupied, from);
@@ -417,6 +434,8 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
     {
         Piece capturedPiece = getPiece(boardState, enemy, to);
         saved.capturedPiece = capturedPiece;
+        boardState.hash ^= Zobrist::bbKeys[enemy][capturedPiece][to];
+        boardState.hash ^= Zobrist::bbKeys[side][promoPiece][to];
         clearBit(boardState.bb[side][moved], from);
         setBit(boardState.bb[side][promoPiece], to);
         clearBit(boardState.bb[enemy][capturedPiece], to);
@@ -427,6 +446,10 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
         break;
     }
     }
+
+    if (boardState.enPassantSq != -1)
+        boardState.hash ^= Zobrist::enPassantKeys[boardState.enPassantSq % 8];
+    boardState.hash ^= Zobrist::castlingKeys[boardState.castlingRights];
 
     //add move to rule50 and set to None en passant (rule50 will be reset to zero later, and enPassant will be set to a valid square later)
     boardState.enPassantSq = -1;
@@ -467,9 +490,14 @@ void MoveGen::makeMove(BoardState& boardState, Move move, StateInfo& saved)
         else if (to == 63) boardState.castlingRights &= ~(1 << 2);
         boardState.rule50 = 0;
     }
-    
+
     //change color to move
     boardState.sideToMove = ~boardState.sideToMove;
+
+    boardState.hash ^= Zobrist::castlingKeys[boardState.castlingRights];
+    if (boardState.enPassantSq != -1)
+        boardState.hash ^= Zobrist::enPassantKeys[to % 8];
+    boardState.hash ^= Zobrist::sideToMoveKey;
 }
 
 void MoveGen::unmakeMove(BoardState& boardState, Move move, const StateInfo& saved)
@@ -581,6 +609,7 @@ void MoveGen::unmakeMove(BoardState& boardState, Move move, const StateInfo& sav
     boardState.rule50 = saved.rule50;
     boardState.enPassantSq = saved.enPassantSquare;
     boardState.castlingRights = saved.castlingRights;
+    boardState.hash = saved.hash;
 
     //change color
     boardState.sideToMove = ~boardState.sideToMove;
@@ -667,7 +696,7 @@ bool MoveGen::onCheck(const BoardState& boardState)
 }
 
 //reset the boardstate to the starting position
-void MoveGen::resetBoardState(BoardState& boardState)
+void MoveGen::resetBoardState(BoardState& boardState, SearchContext& ctx)
 {
     boardState.occupied = 0xFFFF00000000FFFF;
     boardState.byColor[WHITE] = 0x000000000000FFFF;
@@ -688,10 +717,13 @@ void MoveGen::resetBoardState(BoardState& boardState)
     boardState.enPassantSq = -1;
     boardState.rule50 = 0;
     boardState.sideToMove = WHITE;
+    boardState.hash = Zobrist::zobristHash(boardState);
+    ctx.reset();
+    ctx.pushHash(boardState.hash);
 }
 
 //reset the boardState to the fen position, fen must be validated before
-void MoveGen::resetBoardState(BoardState& boardState, std::string fen)
+void MoveGen::resetBoardState(BoardState& boardState, SearchContext& ctx, std::string fen)
 {
     std::string position;
     char color;
@@ -862,6 +894,10 @@ void MoveGen::resetBoardState(BoardState& boardState, std::string fen)
     }
 
     boardState.rule50 = std::stoi(rule50);
+
+    boardState.hash = Zobrist::zobristHash(boardState);
+    ctx.reset();
+    ctx.pushHash(boardState.hash);
 }
 
 //return 0 = white did checkmate, 1 black did checkmate, 2 draw, 3 continue
@@ -875,6 +911,10 @@ int MoveGen::getGameState(BoardState boardState)
             return boardState.sideToMove == WHITE ? 1 : 0;
         return 2;
     }
+    if (boardState.rule50 >= 100)
+        return 2;
+    
+
     return 3;
 }
 

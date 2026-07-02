@@ -28,7 +28,7 @@ namespace MoveGen {
     bool isCheck(const BoardState& boardState);
     //if the moving side's king is in check
     bool onCheck(const BoardState& boardState);
-    void resetBoardState(BoardState& boardState);
-    void resetBoardState(BoardState& boardState, std::string fen);
+    void resetBoardState(BoardState& boardState, SearchContext& ctx);
+    void resetBoardState(BoardState& boardState, SearchContext& ctx, std::string fen);
     int getGameState(BoardState boardState); //for gui
 }

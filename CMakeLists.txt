@@ -23,6 +23,8 @@ set(SOURCES
 	src/utils.h
 	src/lookUpTables.h
 	src/search.h
+	src/zobrist.h
+	src/Zobrist.cpp
 )
 
 add_executable(binaryChess ${SOURCES})

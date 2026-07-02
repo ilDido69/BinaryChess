@@ -71,6 +71,8 @@ struct StateInfo {
 	uint8_t castlingRights; //KQkq
 	int rule50;
 	Piece capturedPiece;
+
+	uint64_t hash;
 };
 
 struct BoardState {
@@ -82,6 +84,8 @@ struct BoardState {
 	int enPassantSq = -1;
 	uint8_t castlingRights = 0xF;
 	int rule50 = 0;
+
+	uint64_t hash;
 };
 
 inline void clearBit(uint64_t& bb, int sq) { bb &= ~(1ULL << sq); }
@@ -107,4 +111,22 @@ struct UciCommand {
 	int depth = 0;
 	std::vector<std::string> moves;
 	std::string fen;
+};
+
+struct SearchContext {
+	static constexpr int MAX_PLY = 128;
+
+	MoveList moveStack[MAX_PLY] = {};
+	StateInfo stateStack[MAX_PLY] = {};
+
+	uint64_t hashHistory[1024] = {};
+	int historyCount = 0;
+
+	void reset()
+	{
+		historyCount = 0;
+	}
+
+	void pushHash(uint64_t hash) { hashHistory[historyCount++] = hash; }
+	void popHash() { historyCount--; }
 };

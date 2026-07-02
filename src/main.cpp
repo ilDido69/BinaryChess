@@ -6,6 +6,7 @@ You can choose between perft and game move (temporarily only perft because game.
 #include "utils.h"
 #include "moveGen.h"
 #include "search.h"
+#include "zobrist.h"
 #include <string>
 #include <iostream>
 #include <chrono>
@@ -154,7 +155,7 @@ UciCommand inputUci()
 }
 
 StateInfo uciMakeMoveStack;
-void uciMakeMoves(BoardState& boardState, std::vector<std::string> moves)
+void uciMakeMoves(BoardState& boardState, SearchContext& ctx, std::vector<std::string> moves)
 {
     if (moves.empty())
         return;
@@ -216,14 +217,18 @@ void uciMakeMoves(BoardState& boardState, std::vector<std::string> moves)
     }
 
     MoveGen::makeMove(boardState, encodeMove(from, to, piece, flag, promo), uciMakeMoveStack);
-
-    uciMakeMoves(boardState, moves);
+    ctx.pushHash(boardState.hash);
+    uciMakeMoves(boardState, ctx, moves);
 }
+
+SearchContext ctx;
 
 int main()
 {
+    Zobrist::init();
+
     BoardState boardState;
-    MoveGen::resetBoardState(boardState);
+    MoveGen::resetBoardState(boardState, ctx);
 
     while (true)
     {
@@ -241,11 +246,11 @@ int main()
         case UciType::QUIT:
             return 0;
         case UciType::NEWGAME:
-            MoveGen::resetBoardState(boardState);
+            MoveGen::resetBoardState(boardState, ctx);
             break;
         case UciType::GODEPTH:
         {
-            Move bestMove = Search::getBestMove(boardState, cmd.depth);
+            Move bestMove = Search::getBestMove(boardState, ctx, cmd.depth);
             std::cout << "info score cp " << Search::getScore() << "\n";
             std::cout << "bestmove ";
             printMove(bestMove);
@@ -253,11 +258,11 @@ int main()
         }
         case UciType::POSITION:
             if (cmd.fen == "")
-                MoveGen::resetBoardState(boardState);
+                MoveGen::resetBoardState(boardState, ctx);
             else
-                MoveGen::resetBoardState(boardState, cmd.fen);
+                MoveGen::resetBoardState(boardState, ctx, cmd.fen);
             if (!cmd.moves.empty())
-                uciMakeMoves(boardState, cmd.moves);
+                uciMakeMoves(boardState, ctx, cmd.moves);
             break;
         }
     }
@@ -329,7 +334,7 @@ ShellCommand inputShell()
     }
 }
 
-*/
+
 void printHelp()
 {
     std::cout << "Commands:\n"
@@ -343,15 +348,10 @@ void printHelp()
         << "  move <MOVE>\n";
 }
 
-//stack for moveList and stateInfo
-constexpr int MAX_PLY = 128;
-MoveList moveListStack[MAX_PLY] = {};
-StateInfo stateStack[MAX_PLY] = {};
-
 //function that recursively counts all possible legal move sequences from a given position to a specified depth, used to verify move generation correctness and NPS.
 uint64_t perft(BoardState& board, int depth, int ply = 0) {
     
-    MoveList& moves = moveListStack[ply];
+    MoveList& moves = ctx.moveStack[ply];
     moves.count = 0;
     MoveGen::getLegalMoves(board, moves);
 
@@ -359,9 +359,9 @@ uint64_t perft(BoardState& board, int depth, int ply = 0) {
 
     uint64_t nodes = 0;
     for (int i = 0; i < moves.count; i++) {
-        MoveGen::makeMove(board, moves.moves[i], stateStack[ply]);
+        MoveGen::makeMove(board, moves.moves[i], ctx.stateStack[ply]);
         nodes += perft(board, depth - 1, ply + 1);
-        MoveGen::unmakeMove(board, moves.moves[i], stateStack[ply]);
+        MoveGen::unmakeMove(board, moves.moves[i], ctx.stateStack[ply]);
     }
     return nodes;
 }
@@ -369,21 +369,21 @@ uint64_t perft(BoardState& board, int depth, int ply = 0) {
 uint64_t perftWithPrint(BoardState& board, int depth, int ply = 0) {
 
     if (depth == 0) return 1;
-    MoveList& moves = moveListStack[ply];
+    MoveList& moves = ctx.moveStack[ply];
     moves.count = 0;
     MoveGen::getLegalMoves(board, moves);
 
     uint64_t nodes = 0;
     for (int i = 0; i < moves.count; i++) {
         printMove(moves.moves[i]);
-        MoveGen::makeMove(board, moves.moves[i], stateStack[ply]);
+        MoveGen::makeMove(board, moves.moves[i], ctx.stateStack[ply]);
         nodes += perftWithPrint(board, depth - 1, ply + 1);
-        MoveGen::unmakeMove(board, moves.moves[i], stateStack[ply]);
+        MoveGen::unmakeMove(board, moves.moves[i], ctx.stateStack[ply]);
     }
     return nodes;
 }
 
-/*
+
 //main - temporarily only for perft
 int main()
 {
