@@ -251,8 +251,13 @@ int main()
             break;
         case UciType::GODEPTH:
         {
+
+            auto start = std::chrono::high_resolution_clock::now();
             Move bestMove = Search::getBestMove(boardState, ctx, cmd.depth);
-            std::cout << "info depth " << cmd.depth << " score cp " << Search::getScore() << " nodes " << Search::getNodes() << "\n";
+            auto end = std::chrono::high_resolution_clock::now();
+            double ms = std::chrono::duration<double, std::milli>(end - start).count();
+            int mS = ms;
+            std::cout << "info depth " << cmd.depth << " score cp " << Search::getScore() << " time " << mS << " nodes " << Search::getNodes() << " nps " << (int)(Search::getNodes() / (ms / 1000)) << "\n";
             std::cout << "bestmove ";
             printMove(bestMove);
             tt.clear();
