@@ -164,13 +164,15 @@ int Search::negamax(BoardState& boardState, int depth, int ply, int alpha, int b
 	return best;
 }
 
+int bestScore;
+
 Move Search::getBestMove(BoardState& boardState, int depth)
 {
 	moveStack[0].count = 0;
 	MoveGen::getLegalMoves(boardState, moveStack[0]);
 
 	Move best = encodeMove(0, 0, EMPTY);
-	int bestScore = -INF;
+	bestScore = -INF;
 
 	int result;
 	for (int i = 0; i < moveStack[0].count; i++)
@@ -186,6 +188,16 @@ Move Search::getBestMove(BoardState& boardState, int depth)
 	}
 
 	return best;
+}
+
+int Search::getScore()
+{
+	return bestScore;
+}
+
+int Search::getNodes()
+{
+	return 0;
 }
 
 

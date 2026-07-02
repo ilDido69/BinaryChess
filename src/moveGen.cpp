@@ -286,12 +286,12 @@ void MoveGen::generateKingMoves(const BoardState& boardState, MoveList& out)
 //all pseudo-legal moves
 void MoveGen::getAllMoves(const BoardState& boardState, MoveList& out)
 {
-    generateKingMoves(boardState, out);
-    generateQueenMoves(boardState, out);
-    generateRookMoves(boardState, out);
-    generateBishopMoves(boardState, out);
-    generateKnightMoves(boardState, out);
     generatePawnMoves(boardState, out);
+    generateKnightMoves(boardState, out);
+    generateBishopMoves(boardState, out);
+    generateRookMoves(boardState, out);
+    generateQueenMoves(boardState, out);
+    generateKingMoves(boardState, out);
 }
 
 //all legal moves

@@ -244,9 +244,13 @@ int main()
             MoveGen::resetBoardState(boardState);
             break;
         case UciType::GODEPTH:
+        {
+            Move bestMove = Search::getBestMove(boardState, cmd.depth);
+            std::cout << "info score cp " << Search::getScore() << "\n";
             std::cout << "bestmove ";
-            printMove(Search::getBestMove(boardState, cmd.depth));
+            printMove(bestMove);
             break;
+        }
         case UciType::POSITION:
             if (cmd.fen == "")
                 MoveGen::resetBoardState(boardState);

@@ -15,4 +15,8 @@ namespace Search {
 	int negamax(BoardState& boardState, int depth, int ply = 1, int alpha = -INF, int beta = +INF);
 
 	Move getBestMove(BoardState& boardState, int depth);
+
+	int getScore();
+
+	int getNodes();
 }
